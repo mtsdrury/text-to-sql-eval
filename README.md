@@ -87,11 +87,15 @@ Open `notebooks/analysis.ipynb` to view accuracy charts, failure mode analysis, 
 | Qwen2.5-Coder-7B | 88.9% | 22.2% | Basic (67%) | CTE/Complex (0%) |
 | Llama-3.1-8B | 44.4% | 5.6% | Basic (33%) | Everything else (0%) |
 
+![Overall Accuracy](results/overall_accuracy.png)
+
+![Accuracy by Difficulty Tier](results/accuracy_by_concept.png)
+
 **Key finding — difficulty curve:** Accuracy degrades consistently as SQL complexity increases. The 32B model scores 67% on basic/intermediate queries and 75% on window functions, but drops to 25% on CTEs and 0% on complex combinations. The 7B models show an even steeper decline, and no model solves any complex-tier query.
 
 **Scale matters:** The Qwen2.5-Coder-32B nearly doubles the accuracy of its 7B counterpart (44% vs 22%), with the biggest gains on window function queries (75% vs 25%).
 
-See `notebooks/analysis.ipynb` for full charts and per-query breakdowns.
+See `notebooks/analysis.ipynb` for full charts, failure mode analysis, and per-query breakdowns.
 
 ## Key Design Decisions
 
