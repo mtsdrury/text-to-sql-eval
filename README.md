@@ -9,6 +9,9 @@ text-to-sql-eval/
 ├── README.md
 ├── requirements.txt
 ├── .gitignore
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example
 ├── data/
 │   └── chinook.db              # Chinook SQLite database
 ├── queries/
@@ -19,6 +22,16 @@ text-to-sql-eval/
 │   ├── llm_generator.py        # HuggingFace Inference API integration
 │   ├── query_runner.py         # SQL execution and result comparison
 │   └── evaluate.py             # Main evaluation pipeline
+├── api/
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI app with lifespan for W&B
+│   ├── models.py               # Pydantic request/response schemas
+│   ├── wandb_logger.py         # W&B logging helper
+│   └── routes/
+│       ├── __init__.py
+│       ├── health.py           # GET /health
+│       ├── generate.py         # POST /api/generate
+│       └── evaluate.py         # POST /api/evaluate
 ├── results/
 │   └── evaluation_results.json # Generated after running evaluation
 └── notebooks/
@@ -96,6 +109,74 @@ Open `notebooks/analysis.ipynb` to view accuracy charts, failure mode analysis, 
 **Scale matters:** The Qwen2.5-Coder-32B nearly doubles the accuracy of its 7B counterpart (44% vs 22%), with the biggest gains on window function queries (75% vs 25%).
 
 See `notebooks/analysis.ipynb` for full charts, failure mode analysis, and per-query breakdowns.
+
+## REST API
+
+A FastAPI layer exposes the evaluation pipeline as HTTP endpoints, with optional W&B experiment tracking.
+
+### Quick Start
+
+```bash
+# Local
+cp .env.example .env   # then fill in HF_TOKEN (required) and WANDB_API_KEY (optional)
+pip install -r requirements.txt
+uvicorn api.main:app --reload
+
+# Docker
+docker compose up --build
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | DB connectivity, available models, W&B status |
+| GET | `/api/models` | List available models with HuggingFace IDs |
+| POST | `/api/generate` | Generate SQL from a natural language question |
+| POST | `/api/evaluate` | Run batch evaluation across models and queries |
+
+### Example Requests
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Generate SQL (playground)
+curl -X POST http://localhost:8000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{"question": "List all customers from Brazil."}'
+
+# Generate with accuracy check against ground truth
+curl -X POST http://localhost:8000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "List all customers from Brazil.",
+    "model": "qwen2.5-coder-32b",
+    "ground_truth_sql": "SELECT FirstName, LastName, Email FROM Customer WHERE Country = '\''Brazil'\''"
+  }'
+
+# Batch evaluation (basic queries only, two models)
+curl -X POST http://localhost:8000/api/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{"models": ["qwen2.5-coder-32b", "mistral-7b"], "concept_tags": ["basic"]}'
+```
+
+### W&B Integration
+
+Set `WANDB_API_KEY` in your `.env` to enable experiment tracking. The API logs:
+- **Per-request metrics**: model, latency, execution success, exact match
+- **Batch evaluation tables**: full model comparison data viewable in W&B dashboards
+
+If no key is set, the API runs normally with logging silently disabled.
+
+### Docker
+
+The `docker-compose.yml` maps port 8000, reads secrets from `.env`, and mounts `./results` for persistence. The Chinook database is baked into the image.
+
+```bash
+docker compose up --build    # build and start
+docker compose down          # stop
+```
 
 ## Key Design Decisions
 
