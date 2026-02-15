@@ -13,12 +13,6 @@ class GenerateRequest(BaseModel):
     ground_truth_sql: str | None = Field(default=None, description="Optional ground truth SQL for accuracy comparison")
 
 
-class EvaluateRequest(BaseModel):
-    models: list[str] = Field(..., description="List of model keys to evaluate")
-    query_ids: list[str] | None = Field(default=None, description="Optional filter: only evaluate these query IDs")
-    concept_tags: list[str] | None = Field(default=None, description="Optional filter: only evaluate these concept tags")
-
-
 # --- Response schemas ---
 
 
@@ -48,20 +42,6 @@ class GenerateResponse(BaseModel):
     error: str | None = None
 
 
-class ModelSummary(BaseModel):
-    total: int
-    execution_rate: float
-    exact_match_rate: float
-    accuracy: float
-    avg_row_overlap_pct: float
-    failure_modes: dict[str, int]
-
-
-class EvaluateResponse(BaseModel):
-    summary: dict[str, ModelSummary]
-    wandb_run_url: str | None = None
-
-
 class ModelInfo(BaseModel):
     key: str
     huggingface_id: str
@@ -71,4 +51,3 @@ class HealthResponse(BaseModel):
     status: str
     db_connected: bool
     available_models: list[ModelInfo]
-    wandb_enabled: bool

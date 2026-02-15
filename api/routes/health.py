@@ -5,7 +5,6 @@ from fastapi import APIRouter
 from src.llm_generator import MODELS
 from src.query_runner import execute_query
 from api.models import HealthResponse, ModelInfo
-from api import wandb_logger
 
 router = APIRouter()
 
@@ -19,5 +18,4 @@ def health():
         available_models=[
             ModelInfo(key=k, huggingface_id=v) for k, v in MODELS.items()
         ],
-        wandb_enabled=wandb_logger.is_enabled(),
     )

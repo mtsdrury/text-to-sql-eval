@@ -13,7 +13,6 @@ from api.models import (
     ExecutionResult,
     ComparisonResult,
 )
-from api import wandb_logger
 
 router = APIRouter(prefix="/api")
 
@@ -42,12 +41,6 @@ def generate(req: GenerateRequest):
     gen = generate_sql(req.question, req.model, token, _get_schema())
 
     if gen["error"]:
-        wandb_logger.log_generation(
-            model=req.model,
-            question=req.question,
-            latency_s=gen["latency_s"],
-            execution_success=False,
-        )
         return GenerateResponse(
             model=req.model,
             question=req.question,
@@ -80,14 +73,6 @@ def generate(req: GenerateRequest):
                     gt_count=cmp["gt_count"],
                     gen_count=cmp["gen_count"],
                 )
-
-    wandb_logger.log_generation(
-        model=req.model,
-        question=req.question,
-        latency_s=gen["latency_s"],
-        execution_success=execution.success if execution else False,
-        exact_match=comparison.exact_match if comparison else None,
-    )
 
     return GenerateResponse(
         model=req.model,

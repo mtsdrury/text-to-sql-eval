@@ -2,5 +2,5 @@ __pycache__/
 *.pyc
 .env
 .ipynb_checkpoints/
-wandb/
-
+SESSION_NOTES.md
+text-to-sql-eval.md
