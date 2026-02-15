@@ -1,0 +1,128 @@
+[
+  {
+    "id": "ba01",
+    "nl_question": "List all customers from Brazil.",
+    "concept_tag": "basic",
+    "sql": "SELECT FirstName || ' ' || LastName AS Customer, Email\nFROM Customer\nWHERE Country = 'Brazil'\nORDER BY LastName",
+    "expected_rows": 5
+  },
+  {
+    "id": "ba02",
+    "nl_question": "How many tracks are in each genre? Show the genre name and count, ordered by count descending.",
+    "concept_tag": "basic",
+    "sql": "SELECT g.Name AS Genre, COUNT(t.TrackId) AS TrackCount\nFROM Genre g\nJOIN Track t ON g.GenreId = t.GenreId\nGROUP BY g.GenreId\nORDER BY TrackCount DESC",
+    "expected_rows": 25
+  },
+  {
+    "id": "ba03",
+    "nl_question": "Find the total number of invoices and the overall sum of invoice totals.",
+    "concept_tag": "basic",
+    "sql": "SELECT COUNT(*) AS InvoiceCount, ROUND(SUM(Total), 2) AS TotalRevenue\nFROM Invoice",
+    "expected_rows": 1
+  },
+  {
+    "id": "in01",
+    "nl_question": "Find all albums that have more than 20 tracks.",
+    "concept_tag": "intermediate",
+    "sql": "SELECT al.Title AS Album, ar.Name AS Artist, COUNT(t.TrackId) AS TrackCount\nFROM Album al\nJOIN Artist ar ON al.ArtistId = ar.ArtistId\nJOIN Track t ON al.AlbumId = t.AlbumId\nGROUP BY al.AlbumId\nHAVING COUNT(t.TrackId) > 20\nORDER BY TrackCount DESC",
+    "expected_rows": 17
+  },
+  {
+    "id": "in02",
+    "nl_question": "Which customers have placed more than 5 invoices? Show their name and invoice count.",
+    "concept_tag": "intermediate",
+    "sql": "SELECT c.FirstName || ' ' || c.LastName AS Customer, COUNT(i.InvoiceId) AS InvoiceCount\nFROM Customer c\nJOIN Invoice i ON c.CustomerId = i.CustomerId\nGROUP BY c.CustomerId\nHAVING COUNT(i.InvoiceId) > 5\nORDER BY InvoiceCount DESC",
+    "expected_rows": 59
+  },
+  {
+    "id": "in03",
+    "nl_question": "Find the top 10 most purchased tracks, showing the track name, artist, and number of times purchased.",
+    "concept_tag": "intermediate",
+    "sql": "SELECT t.Name AS Track, ar.Name AS Artist, COUNT(il.InvoiceLineId) AS TimesPurchased\nFROM Track t\nJOIN Album al ON t.AlbumId = al.AlbumId\nJOIN Artist ar ON al.ArtistId = ar.ArtistId\nJOIN InvoiceLine il ON t.TrackId = il.TrackId\nGROUP BY t.TrackId\nORDER BY TimesPurchased DESC\nLIMIT 10",
+    "expected_rows": 10
+  },
+  {
+    "id": "wf01",
+    "nl_question": "For each genre, rank the tracks by unit price descending and show the top 3 most expensive tracks per genre.",
+    "concept_tag": "window_function",
+    "sql": "SELECT Genre, Name, UnitPrice, rk\nFROM (\n    SELECT g.Name AS Genre, t.Name AS Name, t.UnitPrice,\n           ROW_NUMBER() OVER (PARTITION BY g.GenreId ORDER BY t.UnitPrice DESC) AS rk\n    FROM Track t\n    JOIN Genre g ON t.GenreId = g.GenreId\n) sub\nWHERE rk <= 3\nORDER BY Genre, rk",
+    "expected_rows": 73
+  },
+  {
+    "id": "wf02",
+    "nl_question": "Show each employee's total sales alongside the running total of sales across all employees ordered by total sales descending.",
+    "concept_tag": "window_function",
+    "sql": "SELECT e.FirstName || ' ' || e.LastName AS Employee,\n       ROUND(SUM(i.Total), 2) AS TotalSales,\n       ROUND(SUM(SUM(i.Total)) OVER (ORDER BY SUM(i.Total) DESC), 2) AS RunningTotal\nFROM Employee e\nJOIN Customer c ON e.EmployeeId = c.SupportRepId\nJOIN Invoice i ON c.CustomerId = i.CustomerId\nGROUP BY e.EmployeeId\nORDER BY TotalSales DESC",
+    "expected_rows": 3
+  },
+  {
+    "id": "wf03",
+    "nl_question": "For each customer, show their invoice totals and the percentage each invoice contributes to their overall spending.",
+    "concept_tag": "window_function",
+    "sql": "SELECT c.FirstName || ' ' || c.LastName AS Customer,\n       i.InvoiceId,\n       i.Total,\n       ROUND(i.Total * 100.0 / SUM(i.Total) OVER (PARTITION BY c.CustomerId), 2) AS PctOfTotal\nFROM Customer c\nJOIN Invoice i ON c.CustomerId = i.CustomerId\nORDER BY Customer, i.InvoiceId",
+    "expected_rows": 412
+  },
+  {
+    "id": "wf04",
+    "nl_question": "Show the month-over-month change in total invoice amounts for each year-month combination.",
+    "concept_tag": "window_function",
+    "sql": "SELECT YearMonth, MonthlyTotal,\n       ROUND(MonthlyTotal - LAG(MonthlyTotal) OVER (ORDER BY YearMonth), 2) AS MoM_Change\nFROM (\n    SELECT strftime('%Y-%m', InvoiceDate) AS YearMonth,\n           ROUND(SUM(Total), 2) AS MonthlyTotal\n    FROM Invoice\n    GROUP BY strftime('%Y-%m', InvoiceDate)\n) sub\nORDER BY YearMonth",
+    "expected_rows": 60
+  },
+  {
+    "id": "cte01",
+    "nl_question": "Find customers who have spent more than the average customer lifetime value.",
+    "concept_tag": "cte",
+    "sql": "WITH CustomerSpend AS (\n    SELECT c.CustomerId,\n           c.FirstName || ' ' || c.LastName AS Customer,\n           ROUND(SUM(i.Total), 2) AS TotalSpend\n    FROM Customer c\n    JOIN Invoice i ON c.CustomerId = i.CustomerId\n    GROUP BY c.CustomerId\n),\nAvgSpend AS (\n    SELECT ROUND(AVG(TotalSpend), 2) AS AvgLifetimeValue\n    FROM CustomerSpend\n)\nSELECT cs.Customer, cs.TotalSpend, a.AvgLifetimeValue\nFROM CustomerSpend cs, AvgSpend a\nWHERE cs.TotalSpend > a.AvgLifetimeValue\nORDER BY cs.TotalSpend DESC",
+    "expected_rows": 22
+  },
+  {
+    "id": "cte02",
+    "nl_question": "Find the top 5 artists by number of tracks sold, along with their total revenue.",
+    "concept_tag": "cte",
+    "sql": "WITH ArtistSales AS (\n    SELECT ar.ArtistId,\n           ar.Name AS Artist,\n           COUNT(il.InvoiceLineId) AS TracksSold,\n           ROUND(SUM(il.UnitPrice * il.Quantity), 2) AS Revenue\n    FROM Artist ar\n    JOIN Album al ON ar.ArtistId = al.ArtistId\n    JOIN Track t ON al.AlbumId = t.AlbumId\n    JOIN InvoiceLine il ON t.TrackId = il.TrackId\n    GROUP BY ar.ArtistId\n)\nSELECT Artist, TracksSold, Revenue\nFROM ArtistSales\nORDER BY TracksSold DESC\nLIMIT 5",
+    "expected_rows": 5
+  },
+  {
+    "id": "cte03",
+    "nl_question": "For each country, show the number of customers, total revenue, and average revenue per customer.",
+    "concept_tag": "cte",
+    "sql": "WITH CountryStats AS (\n    SELECT c.Country,\n           COUNT(DISTINCT c.CustomerId) AS NumCustomers,\n           ROUND(SUM(i.Total), 2) AS TotalRevenue\n    FROM Customer c\n    JOIN Invoice i ON c.CustomerId = i.CustomerId\n    GROUP BY c.Country\n)\nSELECT Country, NumCustomers, TotalRevenue,\n       ROUND(TotalRevenue / NumCustomers, 2) AS AvgRevenuePerCustomer\nFROM CountryStats\nORDER BY TotalRevenue DESC",
+    "expected_rows": 24
+  },
+  {
+    "id": "cte04",
+    "nl_question": "Find all genres where the average track length is longer than the overall average track length across all genres.",
+    "concept_tag": "cte",
+    "sql": "WITH GenreAvg AS (\n    SELECT g.Name AS Genre,\n           ROUND(AVG(t.Milliseconds) / 1000.0, 2) AS AvgLengthSec\n    FROM Genre g\n    JOIN Track t ON g.GenreId = t.GenreId\n    GROUP BY g.GenreId\n),\nOverallAvg AS (\n    SELECT ROUND(AVG(Milliseconds) / 1000.0, 2) AS OverallAvgSec\n    FROM Track\n)\nSELECT ga.Genre, ga.AvgLengthSec, oa.OverallAvgSec\nFROM GenreAvg ga, OverallAvg oa\nWHERE ga.AvgLengthSec > oa.OverallAvgSec\nORDER BY ga.AvgLengthSec DESC",
+    "expected_rows": 5
+  },
+  {
+    "id": "cx01",
+    "nl_question": "Rank customers by their total spending within each country, and show only the top 2 customers per country.",
+    "concept_tag": "complex_combination",
+    "sql": "WITH CustomerCountrySpend AS (\n    SELECT c.Country,\n           c.FirstName || ' ' || c.LastName AS Customer,\n           ROUND(SUM(i.Total), 2) AS TotalSpend,\n           ROW_NUMBER() OVER (PARTITION BY c.Country ORDER BY SUM(i.Total) DESC) AS rk\n    FROM Customer c\n    JOIN Invoice i ON c.CustomerId = i.CustomerId\n    GROUP BY c.CustomerId\n)\nSELECT Country, Customer, TotalSpend, rk\nFROM CustomerCountrySpend\nWHERE rk <= 2\nORDER BY Country, rk",
+    "expected_rows": 33
+  },
+  {
+    "id": "cx02",
+    "nl_question": "Show each artist's share of total tracks in the database, but only for artists with more than 20 tracks.",
+    "concept_tag": "complex_combination",
+    "sql": "WITH ArtistTrackCount AS (\n    SELECT ar.Name AS Artist,\n           COUNT(t.TrackId) AS TrackCount\n    FROM Artist ar\n    JOIN Album al ON ar.ArtistId = al.ArtistId\n    JOIN Track t ON al.AlbumId = t.AlbumId\n    GROUP BY ar.ArtistId\n    HAVING COUNT(t.TrackId) > 20\n),\nTotalTracks AS (\n    SELECT COUNT(*) AS Total FROM Track\n)\nSELECT a.Artist, a.TrackCount,\n       ROUND(a.TrackCount * 100.0 / tt.Total, 2) AS PctOfTotal\nFROM ArtistTrackCount a, TotalTracks tt\nORDER BY a.TrackCount DESC",
+    "expected_rows": 52
+  },
+  {
+    "id": "cx03",
+    "nl_question": "Find the quarter with the highest revenue for each year in the database.",
+    "concept_tag": "complex_combination",
+    "sql": "WITH QuarterlyRevenue AS (\n    SELECT strftime('%Y', InvoiceDate) AS Year,\n           CASE\n               WHEN CAST(strftime('%m', InvoiceDate) AS INTEGER) BETWEEN 1 AND 3 THEN 'Q1'\n               WHEN CAST(strftime('%m', InvoiceDate) AS INTEGER) BETWEEN 4 AND 6 THEN 'Q2'\n               WHEN CAST(strftime('%m', InvoiceDate) AS INTEGER) BETWEEN 7 AND 9 THEN 'Q3'\n               ELSE 'Q4'\n           END AS Quarter,\n           ROUND(SUM(Total), 2) AS Revenue\n    FROM Invoice\n    GROUP BY strftime('%Y', InvoiceDate),\n             CASE\n               WHEN CAST(strftime('%m', InvoiceDate) AS INTEGER) BETWEEN 1 AND 3 THEN 'Q1'\n               WHEN CAST(strftime('%m', InvoiceDate) AS INTEGER) BETWEEN 4 AND 6 THEN 'Q2'\n               WHEN CAST(strftime('%m', InvoiceDate) AS INTEGER) BETWEEN 7 AND 9 THEN 'Q3'\n               ELSE 'Q4'\n             END\n),\nRanked AS (\n    SELECT Year, Quarter, Revenue,\n           ROW_NUMBER() OVER (PARTITION BY Year ORDER BY Revenue DESC) AS rk\n    FROM QuarterlyRevenue\n)\nSELECT Year, Quarter, Revenue\nFROM Ranked\nWHERE rk = 1\nORDER BY Year",
+    "expected_rows": 5
+  },
+  {
+    "id": "cx04",
+    "nl_question": "Show a playlist diversity score: for each playlist, count the number of distinct genres and distinct artists it contains.",
+    "concept_tag": "complex_combination",
+    "sql": "WITH PlaylistDiversity AS (\n    SELECT p.PlaylistId,\n           p.Name AS Playlist,\n           COUNT(DISTINCT g.GenreId) AS DistinctGenres,\n           COUNT(DISTINCT ar.ArtistId) AS DistinctArtists,\n           COUNT(pt.TrackId) AS TotalTracks\n    FROM Playlist p\n    JOIN PlaylistTrack pt ON p.PlaylistId = pt.PlaylistId\n    JOIN Track t ON pt.TrackId = t.TrackId\n    JOIN Genre g ON t.GenreId = g.GenreId\n    JOIN Album al ON t.AlbumId = al.AlbumId\n    JOIN Artist ar ON al.ArtistId = ar.ArtistId\n    GROUP BY p.PlaylistId\n)\nSELECT Playlist, TotalTracks, DistinctGenres, DistinctArtists\nFROM PlaylistDiversity\nORDER BY DistinctGenres DESC, DistinctArtists DESC",
+    "expected_rows": 14
+  }
+]
